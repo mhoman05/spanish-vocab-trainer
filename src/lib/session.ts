@@ -25,12 +25,12 @@ export async function grantDailyNew(): Promise<number> {
 
   const slots = Math.max(0, s.newPerDay - introducedToday);
   if (slots > 0) {
-    const fresh = await db.words
-      .where("status")
-      .equals("new")
-      .filter((w) => w.source !== "seed-family" || w.inTop5000) // prefer core list first
-      .toArray();
-    fresh.sort((a, b) => (a.frequencyRank ?? 1e9) - (b.frequencyRank ?? 1e9));
+    const fresh = await db.words.where("status").equals("new").toArray();
+    if (s.newOrder === "frequency") {
+      fresh.sort((a, b) => (a.frequencyRank ?? 1e9) - (b.frequencyRank ?? 1e9));
+    } else {
+      shuffle(fresh);
+    }
     const pick = fresh.slice(0, slots);
     await db.words.bulkPut(pick.map((w) => ({ ...w, status: "learning" as const })));
   }
@@ -66,21 +66,19 @@ export async function buildQueue(now = Date.now()): Promise<Card[]> {
   const recog = cards.filter((c) => c.direction === "es_to_en");
   const targetRecog = Math.round((prod.length / Math.max(s.directionBias, 0.01)) * (1 - s.directionBias));
   shuffle(recog);
-  cards = shuffle([...prod, ...recog.slice(0, Math.max(targetRecog, Math.ceil(recog.length * 0.3)))]);
+  cards = [...prod, ...recog.slice(0, Math.max(targetRecog, Math.ceil(recog.length * 0.3)))];
 
-  // learning-phase cards first (short intervals, time-sensitive), then the rest
-  cards.sort((a, b) => rank(a) - rank(b));
+  // learning-phase cards first (short intervals, time-sensitive), then the rest —
+  // but shuffled within each tier so the introduction order isn't predictable.
+  const isLearning = (c: Card) => c.word.dirs[c.direction].intervalDays < 1;
+  const learn = shuffle(cards.filter(isLearning));
+  const rest = shuffle(cards.filter((c) => !isLearning(c)));
+  cards = [...learn, ...rest];
   if (s.sessionSize > 0) cards = cards.slice(0, s.sessionSize);
   return cards;
 }
 
-function rank(c: Card): number {
-  const st = c.word.dirs[c.direction];
-  const learning = st.intervalDays < 1 ? 0 : 1;
-  return learning * 1e13 + st.due;
-}
-
-function shuffle<T>(a: T[]): T[] {
+export function shuffle<T>(a: T[]): T[] {
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];

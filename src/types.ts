@@ -82,6 +82,7 @@ export interface Settings {
   leechThreshold: number; // lapses before a word is flagged as a leech
   accentSensitive: boolean;
   refresherEnabled: boolean;
+  newOrder: "shuffled" | "frequency"; // order in which new words/forms are introduced
   lastNewGrantDay: string; // YYYY-MM-DD of last daily new-word grant
   // --- conjugation drills ---
   drillNewPerDay: number;

@@ -80,6 +80,25 @@ export default function SettingsView() {
         <input type="range" min={0.3} max={1} step={0.05} value={s.directionBias}
           onChange={(e) => update("directionBias", +e.target.value)} />
 
+        <label>Order new words &amp; verb forms are introduced</label>
+        <div className="row">
+          <button
+            className={s.newOrder === "shuffled" ? "primary" : "ghost"}
+            onClick={() => update("newOrder", "shuffled")}
+          >
+            Shuffled
+          </button>
+          <button
+            className={s.newOrder === "frequency" ? "primary" : "ghost"}
+            onClick={() => update("newOrder", "frequency")}
+          >
+            By frequency
+          </button>
+        </div>
+        <p className="small muted" style={{ marginTop: 4 }}>
+          Shuffled skips the “easy first” ramp — you’ll see less common words sooner.
+        </p>
+
         <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <input type="checkbox" style={{ width: "auto" }} checked={s.defaultTyped}
             onChange={(e) => update("defaultTyped", e.target.checked)} />

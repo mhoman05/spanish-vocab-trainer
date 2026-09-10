@@ -2,7 +2,7 @@ import { db, freshDir, getSettings, saveSettings } from "../db";
 import type { DrillCard, Rating } from "../types";
 import { generateAllCards } from "./conjugation";
 import { scheduleStep } from "./scheduler";
-import { normalize, todayKey } from "./session";
+import { normalize, shuffle, todayKey } from "./session";
 
 /** Create the drill cards on first run (idempotent). */
 export async function ensureDrillsSeeded(): Promise<number> {
@@ -36,7 +36,8 @@ export async function grantDailyDrills(): Promise<number> {
   const fresh = (await db.drills.where("status").equals("new").toArray()).filter((c) =>
     active(c, s.drillTenses, s.drillIncludeVosotros),
   );
-  fresh.sort((a, b) => a.order - b.order);
+  if (s.newOrder === "frequency") fresh.sort((a, b) => a.order - b.order);
+  else shuffle(fresh);
   const pick = fresh.slice(0, Math.max(0, s.drillNewPerDay));
   if (pick.length) {
     await db.drills.bulkPut(pick.map((c) => ({ ...c, status: "learning" as const })));
@@ -48,15 +49,13 @@ export async function grantDailyDrills(): Promise<number> {
 export async function buildDrillQueue(now = Date.now()): Promise<DrillCard[]> {
   const s = await getSettings();
   await grantDailyDrills();
-  let cards = (await db.drills.where("status").anyOf("learning", "review").toArray()).filter(
+  const pool = (await db.drills.where("status").anyOf("learning", "review").toArray()).filter(
     (c) => active(c, s.drillTenses, s.drillIncludeVosotros) && c.dir.due <= now,
   );
-  cards.sort((a, b) => {
-    const la = a.dir.intervalDays < 1 ? 0 : 1;
-    const lb = b.dir.intervalDays < 1 ? 0 : 1;
-    if (la !== lb) return la - lb;
-    return a.dir.due - b.dir.due;
-  });
+  // learning cards first (time-sensitive), review cards after — shuffled within each tier
+  const learn = shuffle(pool.filter((c) => c.dir.intervalDays < 1));
+  const review = shuffle(pool.filter((c) => c.dir.intervalDays >= 1));
+  let cards = [...learn, ...review];
   if (s.sessionSize > 0) cards = cards.slice(0, s.sessionSize);
   return cards;
 }

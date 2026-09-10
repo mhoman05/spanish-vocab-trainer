@@ -71,17 +71,20 @@ export default function Browse() {
     });
   }
 
-  async function addNextByFrequency() {
+  async function addMoreWords() {
     const s = await getSettings();
-    const candidates = await db.words
-      .where("status")
-      .equals("new")
-      .toArray();
-    candidates.sort((a, b) => (a.frequencyRank ?? 1e9) - (b.frequencyRank ?? 1e9));
+    const candidates = await db.words.where("status").equals("new").toArray();
+    if (s.newOrder === "frequency") {
+      candidates.sort((a, b) => (a.frequencyRank ?? 1e9) - (b.frequencyRank ?? 1e9));
+    } else {
+      for (let i = candidates.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+      }
+    }
     const pick = candidates.slice(0, bulk);
     await db.words.bulkPut(pick.map((w) => ({ ...w, status: "learning" as const })));
     setMsg(`Queued ${pick.length} words into learning`);
-    void s;
   }
 
   async function resync() {
@@ -119,7 +122,7 @@ export default function Browse() {
       </div>
 
       <div className="card" style={{ marginTop: 12 }}>
-        <label>Bulk add next {bulk} unseen words (by frequency)</label>
+        <label>Add {bulk} more unseen words to the learning queue now</label>
         <input
           type="range"
           min={5}
@@ -129,7 +132,7 @@ export default function Browse() {
           onChange={(e) => setBulk(+e.target.value)}
         />
         <div className="row" style={{ marginTop: 8 }}>
-          <button className="primary" onClick={addNextByFrequency}>
+          <button className="primary" onClick={addMoreWords}>
             Add {bulk}
           </button>
           <button className="ghost" onClick={resync}>
