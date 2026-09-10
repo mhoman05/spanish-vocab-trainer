@@ -1,3 +1,5 @@
+import type { Tense } from "./lib/conjugation";
+
 export type Direction = "es_to_en" | "en_to_es";
 
 export type WordStatus =
@@ -46,6 +48,24 @@ export interface ReviewLog {
   typed: boolean;
   prevInterval: number;
   newInterval: number;
+  kind?: "vocab" | "conjugation";
+}
+
+/** One conjugation-drill card: a single verb form (verb x tense x person). */
+export interface DrillCard {
+  id: string; // `${verb}:${tense}:${person}`
+  verb: string;
+  gloss: string;
+  tense: Tense;
+  person: number; // 0..5 index into PERSONS
+  answer: string; // the Spanish form
+  cue: string; // plain-English prompt
+  order: number; // introduction order
+  status: WordStatus;
+  addedAt: number;
+  masteredAt?: number | null;
+  leech: boolean;
+  dir: DirState; // single direction: cue -> Spanish form
 }
 
 /** 0 Again · 1 Hard · 2 Good · 3 Easy */
@@ -63,6 +83,11 @@ export interface Settings {
   accentSensitive: boolean;
   refresherEnabled: boolean;
   lastNewGrantDay: string; // YYYY-MM-DD of last daily new-word grant
+  // --- conjugation drills ---
+  drillNewPerDay: number;
+  drillTenses: Tense[];
+  drillIncludeVosotros: boolean;
+  lastDrillGrantDay: string;
 }
 
 export interface DailyStat {

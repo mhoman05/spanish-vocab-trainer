@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { DEFAULT_SETTINGS, db, getSettings, saveSettings } from "../db";
 import type { Settings } from "../types";
+import { TENSES, TENSE_LABEL, type Tense } from "../lib/conjugation";
+import { resetDrillProgress } from "../lib/drills";
 
 export default function SettingsView() {
   const [s, setS] = useState<Settings | null>(null);
@@ -23,6 +25,7 @@ export default function SettingsView() {
       version: 1,
       exportedAt: new Date().toISOString(),
       words: await db.words.toArray(),
+      drills: await db.drills.toArray(),
       logs: await db.logs.toArray(),
       stats: await db.stats.toArray(),
       settings: await db.settings.toArray(),
@@ -38,9 +41,12 @@ export default function SettingsView() {
   async function importData(file: File) {
     const data = JSON.parse(await file.text());
     if (!data.words) return setMsg("Not a valid backup file");
-    await db.transaction("rw", db.words, db.logs, db.stats, db.settings, async () => {
-      await Promise.all([db.words.clear(), db.logs.clear(), db.stats.clear(), db.settings.clear()]);
+    await db.transaction("rw", db.words, db.drills, db.logs, db.stats, db.settings, async () => {
+      await Promise.all([
+        db.words.clear(), db.drills.clear(), db.logs.clear(), db.stats.clear(), db.settings.clear(),
+      ]);
       await db.words.bulkPut(data.words);
+      if (data.drills) await db.drills.bulkPut(data.drills);
       if (data.logs) await db.logs.bulkPut(data.logs);
       if (data.stats) await db.stats.bulkPut(data.stats);
       if (data.settings) await db.settings.bulkPut(data.settings);
@@ -97,6 +103,42 @@ export default function SettingsView() {
         <label>Leech flag after N lapses: {s.leechThreshold}</label>
         <input type="range" min={4} max={15} value={s.leechThreshold}
           onChange={(e) => update("leechThreshold", +e.target.value)} />
+      </div>
+
+      <h2>Verb conjugation drills</h2>
+      <div className="card">
+        <label>New verb forms per day: {s.drillNewPerDay}</label>
+        <input type="range" min={0} max={20} value={s.drillNewPerDay}
+          onChange={(e) => update("drillNewPerDay", +e.target.value)} />
+
+        <label>Tenses to practise</label>
+        {TENSES.map((t: Tense) => (
+          <label key={t} style={{ display: "flex", alignItems: "flex-start", gap: 8, margin: "6px 0" }}>
+            <input
+              type="checkbox"
+              style={{ width: "auto", marginTop: 3 }}
+              checked={s.drillTenses.includes(t)}
+              onChange={(e) =>
+                update(
+                  "drillTenses",
+                  e.target.checked ? [...s.drillTenses, t] : s.drillTenses.filter((x) => x !== t),
+                )
+              }
+            />
+            <span className="small">{TENSE_LABEL[t]}</span>
+          </label>
+        ))}
+
+        <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input type="checkbox" style={{ width: "auto" }} checked={s.drillIncludeVosotros}
+            onChange={(e) => update("drillIncludeVosotros", e.target.checked)} />
+          Include <i>vosotros</i> (Spain’s informal “you all”)
+        </label>
+
+        <button className="ghost small" style={{ width: "100%", marginTop: 10 }}
+          onClick={async () => { await resetDrillProgress(); setMsg("Verb drill progress reset"); }}>
+          Reset verb drill progress
+        </button>
       </div>
 
       <h2>Backup</h2>

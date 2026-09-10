@@ -9,6 +9,7 @@ export default function Stats() {
     const words = await db.words.toArray();
     const stats = await db.stats.toArray();
     const logs = await db.logs.toArray();
+    const drills = await db.drills.toArray();
 
     const byStatus = (s: string) => words.filter((w) => w.status === s).length;
     const now = Date.now();
@@ -50,6 +51,8 @@ export default function Stats() {
       retention: reviews30 ? Math.round((correct30 / reviews30) * 100) : 0,
       totalReviews: logs.length,
       heat: last30,
+      verbMastered: drills.filter((d) => d.status === "mastered").length,
+      verbActive: drills.filter((d) => d.status === "learning" || d.status === "review").length,
     };
   });
 
@@ -75,6 +78,14 @@ export default function Stats() {
         <div className="card center">
           <div className="stat-big">{data.review + data.learning}</div>
           <div className="muted small">active words</div>
+        </div>
+        <div className="card center">
+          <div className="stat-big">{data.verbMastered}</div>
+          <div className="muted small">verb forms mastered</div>
+        </div>
+        <div className="card center">
+          <div className="stat-big">{data.verbActive}</div>
+          <div className="muted small">verb forms in progress</div>
         </div>
       </div>
 

@@ -1,5 +1,6 @@
 import Dexie, { type Table } from "dexie";
-import type { DailyStat, Direction, ReviewLog, Settings, Word } from "./types";
+import type { DailyStat, Direction, DrillCard, ReviewLog, Settings, Word } from "./types";
+import { TENSES } from "./lib/conjugation";
 
 export const DEFAULT_SETTINGS: Settings = {
   id: "settings",
@@ -13,6 +14,10 @@ export const DEFAULT_SETTINGS: Settings = {
   accentSensitive: false,
   refresherEnabled: true,
   lastNewGrantDay: "",
+  drillNewPerDay: 6,
+  drillTenses: [...TENSES],
+  drillIncludeVosotros: false,
+  lastDrillGrantDay: "",
 };
 
 export function freshDir(due = Date.now()) {
@@ -24,6 +29,7 @@ export class VocabDB extends Dexie {
   logs!: Table<ReviewLog, number>;
   settings!: Table<Settings, string>;
   stats!: Table<DailyStat, string>;
+  drills!: Table<DrillCard, string>;
 
   constructor() {
     super("vocab-trainer");
@@ -33,6 +39,9 @@ export class VocabDB extends Dexie {
       logs: "++id, wordId, ts, direction",
       settings: "id",
       stats: "day",
+    });
+    this.version(2).stores({
+      drills: "id, status, tense, verb, order",
     });
   }
 }
